@@ -6,15 +6,18 @@ a simple explanation, and an interactive check before advancing.
 
 ## Current checkpoint
 
-Task 1, checkpoint 1 is complete: the user confirmed that `task1_window.cpp`
-runs successfully.
+Task 1, checkpoints 1 and 2 are complete: the user confirmed the first window
+and all input checks worked in `task1_window.cpp` and `task1_input.cpp`.
 
-The current checkpoint is Task 1, checkpoint 2: `task1_input.cpp` adds a prompt,
-keyboard input, Backspace, and Enter. Enter saves and displays the latest
-submitted text. Interactive confirmation is pending.
+The current checkpoint is Task 1, checkpoint 3: `task1_tabs.cpp` groups the input,
+submitted text, and notice into a `Tab` class, creates two independent objects,
+and switches between them with F1 and F2. The strings are private. Public methods
+perform editing, while read-only getters provide text for drawing. Interactive
+confirmation is pending.
 
-The input accepts printable ASCII characters, up to 80 characters per entry.
-Later checkpoints will add tab buffers, command execution, and scrolling.
+Each tab accepts printable ASCII characters, up to 80 characters per entry.
+Enter saves and displays text in the selected tab. Later checkpoints will add
+opening/closing tabs, command execution, and scrolling.
 
 ## Build and run
 
@@ -25,26 +28,27 @@ Run these commands in Ubuntu:
 cd /mnt/f/Terminator/cpp
 
 # Compile with C++17 and useful warnings, then link the X11 library.
-g++ -std=c++17 -Wall -Wextra -Wpedantic task1_input.cpp -o task1_input -lX11
+g++ -std=c++17 -Wall -Wextra -Wpedantic task1_tabs.cpp -o task1_tabs -lX11
 
 # Run the executable from the current folder.
-./task1_input
+./task1_tabs
 ```
 
-To revisit the first checkpoint, substitute `task1_window.cpp` and
-`task1_window` in the compile and run commands above.
+To revisit earlier checkpoints, substitute `task1_window.cpp` / `task1_window`
+or `task1_input.cpp` / `task1_input` in the compile and run commands above.
 
 ## Checks for the current checkpoint
 
-1. Type `abc`; it should appear beside the prompt.
-2. Press Backspace once; the input should become `ab`.
-3. Press Enter; `ab` should appear under "Last submitted text" and the input
-   should become empty.
-4. Try Backspace and Enter with empty input; the program should stay usable.
-5. Minimise and restore the window; the saved text should remain visible.
-6. Try typing beyond 80 characters; a limit message should appear. Backspace
-   should make room to type another character.
-7. Close the window; the program should return to the Ubuntu prompt.
+1. In Tab 1, type `apple` and leave it unsubmitted.
+2. Press F2; Tab 2 should start with empty input and no submitted text.
+3. Type `banana` and press Enter; Tab 2 should show it as submitted text.
+4. Press F1; unfinished `apple` should still be in Tab 1's input.
+5. Press Enter in Tab 1, then switch between tabs; each should keep its own
+   submitted text (`apple` and `banana`).
+6. Edit unfinished text with Backspace in one tab; the other tab's text should
+   remain intact. An input-limit notice should also belong only to its tab.
+7. Minimise and restore the window; the selected tab's text should be redrawn.
+8. Close the window; the program should return to the Ubuntu prompt.
 
 The required compiler, Make, and X11 development package are already installed
 in Ubuntu-26.04. Each later checkpoint will explain any new dependencies.
@@ -57,6 +61,8 @@ in Ubuntu-26.04. Each later checkpoint will explain any new dependencies.
 - Use `<bits/stdc++.h>` for standard-library headers with Ubuntu's `g++`,
   while including X11 and required Linux/POSIX headers separately.
 - Use simple explanations and comment the code thoroughly.
+- OOP is welcome throughout all 11 tasks. Use classes and encapsulation wherever
+  they make the code clearer, with simple explanations and thorough comments.
 - Do not use pseudo-terminals or APIs such as `forkpty`, `openpty`, or
   `posix_openpt` to execute commands.
 - Do not delegate command execution to Bash or any other shell, including
