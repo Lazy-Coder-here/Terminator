@@ -6,25 +6,38 @@ a simple explanation, and an interactive check before advancing.
 
 ## Current checkpoint
 
-Task 1, checkpoints 1-4 are complete: the user confirmed the window, input,
-two-tab, and tab-controls checks worked in `task1_window.cpp`, `task1_input.cpp`,
-`task1_tabs.cpp`, and `task1_tab_controls.cpp`.
+Task 1, checkpoints 1-5 are complete: the user confirmed the window, input,
+two-tab, tab-controls, and scrolling checks worked in `task1_window.cpp`,
+`task1_input.cpp`, `task1_tabs.cpp`, `task1_tab_controls.cpp`, and
+`task1_scrollback.cpp`.
 
-The current checkpoint is Task 1, checkpoint 5: `task1_scrollback.cpp` adds a
-`vector<string>` output buffer and a scroll position to each `Tab`. Enter saves
-another line, preserving earlier submissions. The window displays up to ten
-saved lines at a time; PageUp and PageDown scroll by a page. A new submission
-returns the view to the newest lines. Switching tabs preserves each tab's text,
-unfinished input, and scroll position. Interactive confirmation is pending.
-The source compiled successfully with C++17, `-Wall`, `-Wextra`, and
-`-Wpedantic` on 22 October 2026, with no warnings.
+The current checkpoint is Task 1, checkpoint 6: `task1_workers.cpp` is a short
+CONSOLE example before integrating workers into X11. It models two tabs, each
+with one worker thread and one private output buffer. Each worker saves a line
+every two seconds. The main thread accepts `1` or `2` to view a buffer, `stop1`
+or `stop2` to stop one worker independently, and `q` to stop both and quit.
+These controls are interpreted directly in C++; no external commands run.
+Interactive confirmation is pending.
+The example compiled with C++17, `-Wall`, `-Wextra`, `-Wpedantic`, and `-pthread`
+on 22 October 2026 without warnings. Automated checks passed for both workers
+progressing while input waits, separate buffers, stopping one without stopping
+the other, repeated stopping, invalid input, normal exit, and end-of-input exit.
 
-The previous tab controls remain: Ctrl+T opens the first free slot,
+The new `TabWorker` class owns its thread. A mutex protects the saved lines and
+stop flag; a condition variable waits without spinning and wakes promptly on a
+stop request. The GUI integration checkpoint will use this ownership pattern
+while keeping all X11 calls on the GUI thread. Process mode comes later.
+
+The verified graphical checkpoint remains `task1_scrollback.cpp`. It stores
+multiple submitted lines in each `Tab`, displays ten at a time, and supports
+PageUp/PageDown with a separate scroll position for each tab.
+
+In `task1_scrollback.cpp`, the tab controls remain: Ctrl+T opens the first free slot,
 Ctrl+Shift+W closes the selected tab, Ctrl+Tab selects the next open tab,
 and F1-F6 select open slots directly. There are six numbered slots in this
 checkpoint. Closing the final tab exits; reopening a closed slot starts fresh.
 
-Each tab accepts printable ASCII characters, up to 80 characters per entry.
+Each graphical tab accepts printable ASCII characters, up to 80 per entry.
 Enter saves and displays text in the selected tab. Later checkpoints will add
 command execution and the required thread/process modes. Ctrl+W is
 reserved for deleting the previous word in the later editing task.
@@ -42,37 +55,39 @@ Run these commands in Ubuntu:
 # Enter the folder containing the C++ checkpoints.
 cd /mnt/f/Terminator/cpp
 
-# Compile with C++17 and useful warnings, then link the X11 library.
-g++ -std=c++17 -Wall -Wextra -Wpedantic task1_scrollback.cpp -o task1_scrollback -lX11
+# Compile the console worker example with C++17 and threading support.
+g++ -std=c++17 -Wall -Wextra -Wpedantic task1_workers.cpp -o task1_workers -pthread
 
 # Run the executable from the current folder.
+./task1_workers
+```
+
+To revisit the latest graphical checkpoint, use:
+
+```bash
+# Compile the saved X11 scrolling checkpoint.
+g++ -std=c++17 -Wall -Wextra -Wpedantic task1_scrollback.cpp -o task1_scrollback -lX11
+
+# Open the graphical window.
 ./task1_scrollback
 ```
 
-To revisit earlier checkpoints, substitute `task1_window.cpp` / `task1_window`
-or `task1_input.cpp` / `task1_input`, or `task1_tabs.cpp` / `task1_tabs`,
-or `task1_tab_controls.cpp` / `task1_tab_controls`,
-in the compile and run commands above.
+The earlier window, input, two-tab, and tab-controls files remain available too.
 
 ## Checks for the current checkpoint
 
-1. Press PageUp and PageDown before entering anything; the empty buffer should
-   remain empty and the program should remain responsive.
-2. In Tab 1, submit `line1`, `line2`, and so on through `line15`, pressing Enter
-   after each. The output should retain all 15 lines and show lines 6-15.
-3. Press PageUp; lines 1-10 should appear. Press it again; the view should stop
-   at the oldest page. PageDown should restore lines 6-15 and stop at the newest.
-4. Press PageUp again and type `unfinished` without pressing Enter. Open Tab 2
-   with Ctrl+T, submit `banana`, then press F1. Tab 1 should still show lines
-   1-10 and its unfinished input. Tab 2 should have its own one-line buffer.
-5. Press Enter in Tab 1. It should save line 16 and automatically show lines
-   7-16, including the new submission. Tab 2's text should remain intact.
-6. Scroll Tab 1 upward, minimise and restore the window, and verify the same
-   page and input are redrawn.
-7. In Tab 2, PageUp/PageDown should leave its single saved line visible. Close
-   it with Ctrl+Shift+W, then reopen it with Ctrl+T; its buffer should be empty.
-8. Check the previous tab shortcuts, Backspace, the input limit, and closing
-   the final tab or the whole window.
+1. Run the console example. It should display its controls and a `Choice:` prompt.
+2. Wait three seconds, then enter `1`; Tab 1 should have saved at least one line.
+3. Enter `2`; Tab 2 should also have produced lines although you did not view it.
+4. Wait another three seconds without entering anything, then view both tabs;
+   both buffers should have grown while the main thread was waiting for input.
+5. Enter `stop1`, view Tab 1, and note its saved-line count. Wait three seconds
+   and view both tabs again. Tab 1's count should stay fixed; Tab 2 should grow.
+6. Enter `stop1` again; repeated stopping should be harmless. Enter an invalid
+   choice such as `hello`; it should show the allowed controls.
+7. Enter `q`; the program should stop its workers promptly and print
+   `All workers stopped.` End-of-input (Ctrl+D at an empty prompt) should also
+   stop both workers safely when you run the example again.
 
 The required compiler, Make, and X11 development package are already installed
 in Ubuntu-26.04. Each later checkpoint will explain any new dependencies.
