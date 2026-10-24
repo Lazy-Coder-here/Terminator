@@ -6,38 +6,38 @@ a simple explanation, and an interactive check before advancing.
 
 ## Current checkpoint
 
-Task 1, checkpoints 1-6 are complete: the user confirmed the window, input,
+Task 1, checkpoints 1-7 are complete: the user confirmed the window, input,
 two-tab, tab-controls, and scrolling checks worked in `task1_window.cpp`,
 `task1_input.cpp`, `task1_tabs.cpp`, `task1_tab_controls.cpp`, and
-`task1_scrollback.cpp`, and the console-worker checks in `task1_workers.cpp`.
+`task1_scrollback.cpp`, the console-worker checks in `task1_workers.cpp`, and
+the GUI-worker checks in `task1_gui_workers.cpp`.
 
-The current checkpoint is Task 1, checkpoint 7: `task1_gui_workers.cpp` connects
-one worker thread to each open GUI tab. A worker queues a numbered message every
-two seconds, including while its tab is hidden. The GUI transfers queued messages
-into each tab's output buffer and handles all X11 calls itself.
+The current checkpoint is Task 1, checkpoint 8: `task1_processes.cpp` is a console
+example before integrating process workers into X11. One parent manages two
+simulated tabs, with one child process and one ordinary output pipe per tab.
+Each child sends a numbered message every two seconds. The parent stores the
+received lines in separate buffers and prints a buffer when asked.
 Interactive confirmation is pending.
-The source compiled with C++17, `-Wall`, `-Wextra`, `-Wpedantic`, `-lX11`, and
-`-pthread` on 22 October 2026 without warnings.
-Automated checks passed for pipe wake-ups, hidden-tab progress, separate buffers,
-stable older pages during new output, independent worker cleanup, fresh workers
-on reopening, all six workers, the tab limit, and closing the pipe on scope exit.
-These checks exercise the actual classes without opening an X11 window; the
-interactive GUI checks below remain for the user.
+The source compiled with C++17, `-Wall`, `-Wextra`, and `-Wpedantic` on
+23 October 2026 without warnings. Automated checks passed for three distinct
+PIDs, separate output, independent stopping, child reaping, repeated stopping,
+partial input, CRLF input, batched controls, normal exit, and end-of-input exit.
 
-`TabWorker` owns its thread and mutex-protected queue. `WakeupPipe` provides an
-ordinary nonblocking pipe used only to notify the GUI that output is available.
-The GUI uses `poll()` to wait for either X11 events or worker notifications.
-The pipe contains wake-up bytes; actual text is transferred from the queues.
-`TabManager` owns each worker through a `unique_ptr`, so closing a tab stops
-and joins its worker before resetting the tab. Workers stop before the shared
-pipe closes on application exit. Worker exceptions are forwarded to the GUI.
+The `ProcessTabs` class owns both child PIDs, pipe descriptors, and parent-side
+buffers. It creates all pipes before forking. Each child closes unrelated ends,
+keeps only its own write end, and sends newline-delimited text. The parent closes
+its write ends and uses `poll()` to wait for stdin or output from either child.
+It handles partial reads and splits complete lines into the correct buffer.
+`stop1` and `stop2` send SIGTERM to one positive child PID, then use `waitpid()`
+to reap it. Normal exit, EOF, and construction errors clean up owned resources.
+This example forks from a single-threaded program and runs no external commands.
 
-Output still displays ten lines at a time. Scrolling up holds the current older
-page in place as new messages arrive; offset zero follows the newest text.
-Enter saves typed text and returns the view to the newest lines. These messages
-demonstrate worker integration; command execution and process mode come later.
+The latest verified GUI checkpoint remains `task1_gui_workers.cpp`. It connects
+one worker thread to each GUI tab while keeping all X11 calls on the GUI thread.
+Process workers will be connected to that GUI in a later checkpoint, including
+the required `useProcess=True` selection. External command execution comes later.
 
-The tab controls remain: Ctrl+T opens the first free slot,
+In the GUI checkpoint, Ctrl+T opens the first free slot,
 Ctrl+Shift+W closes the selected tab, Ctrl+Tab selects the next open tab,
 and F1-F6 select open slots directly. There are six numbered slots in this
 checkpoint. Closing the final tab exits; reopening a closed slot starts fresh.
@@ -47,7 +47,7 @@ Enter saves and displays text in the selected tab. Later checkpoints will add
 command execution and process mode. Ctrl+W is
 reserved for deleting the previous word in the later editing task.
 
-This checkpoint uses a fixed ten-row output area, printable ASCII, and no line
+The GUI checkpoint uses a fixed ten-row output area, printable ASCII, and no line
 wrapping. Saved lines remain in memory until their tab closes or the program
 exits; this buffer is separate from the persistent command history required
 later in the assignment.
@@ -60,21 +60,21 @@ Run these commands in Ubuntu:
 # Enter the folder containing the C++ checkpoints.
 cd /mnt/f/Terminator/cpp
 
-# Compile the GUI worker checkpoint with X11 and threading support.
-g++ -std=c++17 -Wall -Wextra -Wpedantic task1_gui_workers.cpp -o task1_gui_workers -lX11 -pthread
+# Compile the console process example with C++17 and useful warnings.
+g++ -std=c++17 -Wall -Wextra -Wpedantic task1_processes.cpp -o task1_processes
 
 # Run the executable from the current folder.
-./task1_gui_workers
+./task1_processes
 ```
 
-To revisit the earlier scrolling checkpoint, use:
+To revisit the latest graphical checkpoint, use:
 
 ```bash
-# Compile the saved X11 scrolling checkpoint.
-g++ -std=c++17 -Wall -Wextra -Wpedantic task1_scrollback.cpp -o task1_scrollback -lX11
+# Compile the saved X11 worker checkpoint.
+g++ -std=c++17 -Wall -Wextra -Wpedantic task1_gui_workers.cpp -o task1_gui_workers -lX11 -pthread
 
 # Open the graphical window.
-./task1_scrollback
+./task1_gui_workers
 ```
 
 The earlier window, input, two-tab, and tab-controls files remain available too.
@@ -82,24 +82,21 @@ The verified console worker example is still available as `task1_workers.cpp`.
 
 ## Checks for the current checkpoint
 
-1. Run the GUI checkpoint and wait three seconds. Tab 1 should automatically
-   display a numbered background message without any keypress.
-2. Type `apple` without pressing Enter, then open Tab 2 with Ctrl+T. Submit
-   `banana` there. Its input and messages should belong to Tab 2.
-3. Stay in Tab 2 for five seconds, then press F1. Tab 1 should have gained
-   background messages while hidden and should retain unfinished `apple`.
-4. Submit enough short entries to exceed ten saved lines, press PageUp, and
-   remember the first visible line. Wait four seconds: the same older page
-   should remain visible while the saved-line count grows. PageDown should
-   reach the newest text. Minimise/restore should redraw the correct page.
-5. Close Tab 1 with Ctrl+Shift+W. Tab 2 should continue producing messages.
-   Reopen Tab 1 with Ctrl+T: old text should be gone, and after two seconds its
-   new worker should start with `Tab 1: background line 1`.
-6. Open all six tabs, then try Ctrl+T once more. The limit notice should appear;
-   switching tabs and typing should remain responsive with all workers active.
-7. Close the window while workers are running; it should return promptly to
-   Ubuntu. Run it again and close its single tab with Ctrl+Shift+W; that should
-   also stop the worker and exit promptly.
+1. Run the console example. It should print one parent PID and two different
+   child PIDs, followed by its controls and a `Choice:` prompt.
+2. Wait three seconds, then enter `1` and `2`. Each buffer should contain
+   numbered messages identifying its own tab and child PID.
+3. Wait another three seconds without viewing Tab 2, then enter `2` again.
+   Its buffer should have grown while it was not being viewed.
+4. Enter `stop1`, view Tab 1 with `1`, and note its count. Wait three seconds,
+   then view both tabs: Tab 1's count should stay fixed while Tab 2's grows.
+5. Enter `stop1` again; it should be harmless. Enter `hello`; the program
+   should show the allowed controls.
+6. Enter `stop2`, then view both buffers. Their saved lines should remain
+   available, and neither count should grow after waiting three seconds.
+7. Enter `q`; it should return promptly to Ubuntu after printing
+   `All children stopped and reaped.` Run it again and enter `q` while both
+   children are active. EOF (Ctrl+D at an empty prompt) should also clean up.
 
 The required compiler, Make, and X11 development package are already installed
 in Ubuntu-26.04. Each later checkpoint will explain any new dependencies.
